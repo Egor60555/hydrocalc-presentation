@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="HydroCalc — плагин Autodesk Revit для гидравлического анализа отопительных сетей: сбор топологии, расчёт контуров, диагностика модели, визуальная проверка и экспорт результатов.">
+<meta name="theme-color" content="#0a1f33">
+<title>HydroCalc — гидравлический анализ сетей отопления в Revit</title>
+<style>
+  :root{
+    --navy:#0a1f33;
+    --navy-2:#123654;
+    --deep:#062033;
+    --ink:#14283f;
+    --muted:#5b6f82;
+    --cyan:#2ec7c3;
+    --cyan-soft:#3de6e0;
+    --blue:#2e82e8;
+    --paper:#f4f7fb;
+    --line:#dce5ef;
+    --line-2:#eef3f9;
+    --white:#fff;
+    --green:#1a9a78;
+    --amber:#c07a16;
+    --red:#c34a52;
+    --shadow:0 24px 60px rgba(10,31,51,.10);
+    --shadow-soft:0 10px 30px rgba(10,31,51,.08);
+    --r-lg:22px;
+    --r-md:14px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:84px}
+  body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.7 "Segoe UI",system-ui,-apple-system,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  img,svg{display:block}
+  .wrap{width:min(1160px,calc(100% - 44px));margin:auto}
+  .accent{color:var(--cyan)}
+  .g-accent{background:linear-gradient(90deg,#2ec7c3,#2e82e8);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  /* ---------- Topbar ---------- */
+  .topbar{position:sticky;top:0;z-index:50;background:rgba(10,31,51,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.08)}
+  .topbar-inner{display:flex;justify-content:space-between;align-items:center;gap:22px;padding:14px 0}
+  .brand{display:flex;align-items:center;gap:11px;color:#fff;font-weight:800;letter-spacing:.06em;text-decoration:none}
+  .brand .mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#2ec7c3,#1e6fb8);display:grid;place-items:center}
+  .brand .mark svg{width:20px;height:20px}
+  .brand b{font-size:.98rem}.brand small{display:block;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:#93b2cf;font-weight:600}
+  .topnav{display:flex;align-items:center;gap:22px;font-size:.92rem;color:#cfe0f0}
+  .topnav a{text-decoration:none;color:inherit;transition:color .2s}
+  .topnav a:hover{color:#fff}
+  .topnav .btn{font-weight:700}
+  .burger{display:none;background:none;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:7px 10px;cursor:pointer;font-size:1.1rem;line-height:1}
+  .mobile-nav{display:none;flex-direction:column;gap:4px;padding:8px 0 16px}
+  .mobile-nav a{padding:9px 4px;color:#cfe0f0;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.06)}
+  .mobile-nav.open{display:flex}
+
+  /* ---------- Buttons ---------- */
+  .btn{display:inline-flex;align-items:center;gap:9px;padding:13px 22px;border-radius:12px;font-weight:700;font-size:.98rem;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:transform .15s,box-shadow .2s,background .2s}
+  .btn:hover{transform:translateY(-2px)}
+  .btn-primary{background:linear-gradient(135deg,#2ec7c3,#2e82e8);color:#fff;box-shadow:0 12px 28px rgba(46,130,232,.32)}
+  .btn-primary:hover{box-shadow:0 16px 34px rgba(46,130,232,.4)}
+  .btn-ghost{border-color:rgba(255,255,255,.28);color:#eaf4ff;background:rgba(255,255,255,.05)}
+  .btn-ghost:hover{background:rgba(255,255,255,.1)}
+  .btn-plain{border-color:var(--line);color:var(--navy);background:#fff}
+  .btn-plain:hover{border-color:#c3d3e5;box-shadow:var(--shadow-soft)}
+
+  /* ---------- Hero ---------- */
+  .hero{position:relative;overflow:hidden;background:
+    radial-gradient(900px 500px at 88% -8%,rgba(46,199,195,.20),transparent 42%),
+    radial-gradient(700px 500px at 4% 8%,rgba(46,130,232,.18),transparent 45%),
+    linear-gradient(128deg,#071c2f 0%,#0d2c49 55%,#0f3a57 100%);
+    color:#fff;padding:96px 0 90px}
+  .hero-canvas{position:absolute;inset:0;pointer-events:none;opacity:.5}
+  .hero-canvas svg{position:absolute;top:-10%;right:-4%;width:720px;max-width:70vw;height:auto}
+  .hero-content{position:relative;z-index:2;max-width:840px}
+  .eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:#7fe3dd;font-weight:800}
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--cyan)}
+  .hero h1{font-size:clamp(2.6rem,6.2vw,4.9rem);line-height:1.03;letter-spacing:-.03em;margin:22px 0 22px;font-weight:850}
+  .hero p.lede{max-width:700px;font-size:1.2rem;line-height:1.65;color:#d9e8f4;margin:0}
+  .hero-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:34px}
+  .hero-tags{display:flex;flex-wrap:wrap;gap:10px;margin-top:34px}
+  .tag{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.07);padding:7px 13px;border-radius:999px;font-size:.86rem;color:#e6f2fb}
+  .scroll-cue{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#8fb0cd;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;z-index:2}
+
+  /* ---------- Sections ---------- */
+  section{padding:78px 0}
+  .sec-head{margin-bottom:40px}
+  .sec-head .kicker{display:inline-flex;align-items:center;gap:9px;font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--blue);font-weight:800}
+  .sec-head .kicker::after{content:"";width:30px;height:2px;background:var(--cyan)}
+  .sec-head h2{font-size:clamp(1.8rem,3.4vw,2.6rem);line-height:1.15;letter-spacing:-.02em;margin:14px 0 0}
+  .sec-head p{margin:14px 0 0;color:var(--muted);font-size:1.06rem;max-width:760px}
+
+  /* ---------- Stat band ---------- */
+  .band{background:var(--navy);color:#fff;margin:0;padding:64px 0}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}
+  .stat{text-align:left;border-left:1px solid rgba(255,255,255,.12);padding-left:22px}
+  .stat .num{font-size:2.5rem;font-weight:850;line-height:1;background:linear-gradient(90deg,#5fe0db,#42a5f5);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat .lbl{margin-top:8px;color:#bfd4e6;font-size:.95rem}
+
+  /* ---------- Problem / solution ---------- */
+  .prob-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .prob-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-md);padding:24px;display:flex;gap:18px;box-shadow:var(--shadow-soft)}
+  .prob-card .ico{flex:0 0 46px;width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:#e9f3fe;color:var(--blue)}
+  .prob-card .ico svg{width:23px;height:23px}
+  .prob-card h3{font-size:1.06rem;margin:2px 0 6px}
+  .prob-card p{margin:0;color:var(--muted);font-size:.96rem}
+  .prob-card .result{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);color:var(--navy);font-size:.93rem;font-weight:600}
+  .prob-card .result b{color:var(--cyan)}
+  .prob-card .result svg{display:inline;vertical-align:-1px;width:15px;height:15px;margin-right:5px;fill:var(--green)}
+
+  /* ---------- Workflow ---------- */
+  .wf{background:linear-gradient(180deg,#fff,#f7fafd)}
+  .wf-track{position:relative;margin-top:34px}
+  .wf-track::before{content:"";position:absolute;left:27px;top:6px;bottom:6px;width:2px;background:linear-gradient(180deg,#2ec7c3,#2e82e8)}
+  .wf-step{position:relative;display:grid;grid-template-columns:56px 1fr;gap:20px;padding-bottom:26px}
+  .wf-step:last-child{padding-bottom:0}
+  .wf-num{width:56px;height:56px;border-radius:16px;background:#fff;border:1.5px solid var(--cyan);display:grid;place-items:center;font-weight:850;color:var(--navy);font-size:1.05rem;box-shadow:0 6px 18px rgba(46,199,195,.25)}
+  .wf-body{background:#fff;border:1px solid var(--line);border-radius:var(--r-md);padding:22px 24px;box-shadow:var(--shadow-soft)}
+  .wf-body h3{margin:0 0 7px;font-size:1.14rem}
+  .wf-body p{margin:0;color:var(--muted);font-size:.98rem}
+
+  /* ---------- Features ---------- */
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .feat{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:26px;box-shadow:var(--shadow-soft);display:flex;flex-direction:column;gap:4px;transition:transform .2s,box-shadow .2s}
+  .feat:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+  .feat .chip{align-self:flex-start;display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.06em;padding:4px 10px;border-radius:999px;margin-bottom:8px}
+  .chip.core{background:#e5f6ef;color:#11694d}
+  .chip.ribbon{background:#e6f0fe;color:#1d5cb0}
+  .chip.extra{background:#fff3df;color:#9a6a13}
+  .feat h3{font-size:1.1rem;margin:0 0 6px;line-height:1.3}
+  .feat p{margin:0;color:var(--muted);font-size:.95rem}
+  .feat .tox{margin-top:14px;font-size:.86rem;color:var(--muted);border-top:1px solid var(--line-2);padding-top:11px}
+  .feat .tox b{color:var(--navy)}
+
+  /* ---------- Diagnostic strip ---------- */
+  .diag{background:var(--navy);color:#fff}
+  .diag-inner{display:grid;grid-template-columns:1.1fr .9fr;gap:52px;align-items:center}
+  .diag h2{font-size:clamp(1.8rem,3.4vw,2.5rem);letter-spacing:-.02em;margin:0 0 18px}
+  .diag p{color:#c8dcec;margin:0 0 26px;font-size:1.05rem;max-width:520px}
+  .diag-strip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:var(--r-lg);padding:8px;display:grid;gap:8px}
+  .drow{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:13px 14px;border-radius:12px;background:rgba(255,255,255,.03)}
+  .drow .code{font-family:Consolas,monospace;font-size:.82rem;font-weight:700}
+  .drow .msg{color:#dcebf6;font-size:.92rem}
+  .drow .badge{font-size:.72rem;font-weight:800;padding:3px 9px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase}
+  .badge.ok{background:rgba(46,199,195,.16);color:#5fe0db}
+  .badge.warn{background:rgba(240,173,78,.16);color:#f2c077}
+  .badge.crit{background:rgba(237,110,120,.18);color:#f29ba3}
+  .drow .code.ok{color:#5fe0db}.drow .code.warn{color:#f2c077}.drow .code.crit{color:#f29ba3}
+
+  /* ---------- Pipeline visual ---------- */
+  .pipe{overflow:hidden;border-radius:var(--r-lg);border:1px solid rgba(255,255,255,.14);background:rgba(2,16,30,.55)}
+  .pipe svg{width:100%;height:auto}
+  .pipe-cap{font-size:.86rem;color:#8fb0cd;text-align:left;padding:6px 14px 14px}
+
+  /* ---------- Profile table ---------- */
+  .prof{background:#fff}
+  .prof-table{overflow:hidden;border:1px solid var(--line);border-radius:var(--r-md);mask-image:linear-gradient(#fff calc(100% - 40px),transparent)}
+  table{border-collapse:collapse;width:100%}
+  tr{border-bottom:1px solid var(--line-2)}
+  tr:last-child{border-bottom:none}
+  td{padding:17px 20px;vertical-align:top;font-size:.97rem}
+  td.k{width:250px;font-weight:700;color:var(--blue);background:#f2f7fd}
+  td.v{color:#3d5368}
+
+  /* ---------- Pitch / CTA ---------- */
+  .pitch{position:relative;overflow:hidden;background:linear-gradient(135deg,#0a1f33,#0f3a57);color:#fff;text-align:center}
+  .pitch::before{content:"";position:absolute;width:460px;height:460px;border:1px solid rgba(255,255,255,.14);border-radius:50%;left:-160px;top:-230px;box-shadow:0 0 0 40px rgba(255,255,255,.03),0 0 0 80px rgba(255,255,255,.02)}
+  .pitch h2{font-size:clamp(1.9rem,3.6vw,2.9rem);letter-spacing:-.02em;margin:0 0 18px}
+  .pitch .quote{font-size:1.3rem;line-height:1.6;color:#cfe2f1;max-width:820px;margin:0 auto 34px}
+  .pitch .quote b{color:#8deef0}
+  .pitch p.note{color:#93b2cf;max-width:640px;margin:24px auto 0;font-size:.92rem}
+
+  /* ---------- Footer ---------- */
+  footer{background:#071b2e;color:#9db7cd;padding:36px 0}
+  footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+  footer strong{color:#fff}
+  footer p{margin:3px 0;font-size:.88rem}
+
+  /* ---------- Reveal animation ---------- */
+  .reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.visible{opacity:1;transform:none}
+  .reveal[data-delay="1"]{transition-delay:.08s}
+  .reveal[data-delay="2"]{transition-delay:.16s}
+  .reveal[data-delay="3"]{transition-delay:.24s}
+
+  /* ---------- Responsive ---------- */
+  @media(max-width:980px){
+    .stat-grid{grid-template-columns:repeat(2,1fr);gap:22px}
+    .feat-grid{grid-template-columns:repeat(2,1fr)}
+    .diag-inner{grid-template-columns:1fr;gap:34px}
+    .topnav{display:none}
+    .burger{display:inline-block}
+  }
+  @media(max-width:640px){
+    .prob-grid{grid-template-columns:1fr}
+    .feat-grid{grid-template-columns:1fr}
+    .stat-grid{grid-template-columns:1fr 1fr}
+    .hero{padding:64px 0}
+    .hero h1{font-size:2.5rem}
+    .scroll-cue{display:none}
+    td.k{width:150px}
+    .pitch .quote{font-size:1.12rem}
+  }
+  @media(prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .reveal{opacity:1;transform:none;transition:none}
+  }
+  @media print{
+    body{background:#fff}
+    .topbar,.scroll-cue,.hero-canvas{display:none}
+    .hero{background:#0f3a57!important;padding:28px 0;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    .reveal{opacity:1;transform:none}
+    section{padding:30px 0}
+    .band,.diag,.pitch{background:#0f3a57!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    .feat,.prob-card,.wf-body{box-shadow:none;break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a href="#" class="brand" aria-label="HydroCalc — на главную">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6l2-5 3 10 2-5h5"/><circle cx="3" cy="12" r="1.5" fill="#0a1f33"/><circle cx="21" cy="12" r="1.5" fill="#0a1f33"/></svg></span>
+      <span>HYDRO<b class="accent">CALC</b><small>Анализ сетей отопления</small></span>
+    </a>
+    <nav class="topnav" aria-label="Основная навигация">
+      <a href="#problem">Задачи</a>
+      <a href="#workflow">Процесс</a>
+      <a href="#features">Возможности</a>
+      <a href="#diag">Диагностика</a>
+      <a href="#profile">Технологии</a>
+      <a href="#pitch" class="btn btn-ghost">Питч</a>
+    </nav>
+    <button class="burger" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="mobileNav">☰</button>
+  </div>
+  <div class="wrap mobile-nav" id="mobileNav">
+    <a href="#problem">Задачи</a>
+    <a href="#workflow">Процесс</a>
+    <a href="#features">Возможности</a>
+    <a href="#diag">Диагностика</a>
+    <a href="#profile">Технологии</a>
+    <a href="#pitch">Питч</a>
+  </div>
+</header>
+
+<section class="hero" aria-label="О продукте HydroCalc">
+  <div class="hero-canvas" aria-hidden="true">
+    <svg viewBox="0 0 700 620" fill="none" stroke="#5a8fb3" stroke-width="2" stroke-linecap="round" style="opacity:.55">
+      <path d="M40 440 H180 a26 26 0 0 1 26 26 V520 a26 26 0 0 0 26 26 H400"/>
+      <path d="M260 200 V520"/>
+      <path d="M180 360 H80 a26 26 0 0 0 -26 26 v40"/>
+      <circle cx="180" cy="466" r="6" fill="#2ec7c3" stroke="none"/>
+      <circle cx="260" cy="360" r="6" fill="none"/>
+      <circle cx="400" cy="546" r="6" fill="#2e82e8" stroke="none"/>
+      <path d="M260 200 a26 26 0 0 1 26 -26 h120 a26 26 0 0 0 26 -26 v-30" stroke-dasharray="6 7"/>
+    </svg>
+  </div>
+  <div class="wrap hero-content">
+    <span class="eyebrow">Инженерный инструмент для BIM / MEP</span>
+    <h1>Гидравлика сети отопления —<br>внутри модели <span class="g-accent">Revit</span></h1>
+    <p class="lede">HydroCalc — плагин Autodesk Revit, который превращает BIM-модель трубопроводной сети в проверяемый рабочий процесс: собрать топологию, рассчитать выбранные контуры, увидеть проблемные участки, подготовить результаты и применить согласованные рекомендации прямо в проекте.</p>
+    <div class="hero-actions">
+      <a href="#features" class="btn btn-primary">Смотреть возможности</a>
+      <a href="#pitch" class="btn btn-ghost">О продукте</a>
+    </div>
+    <div class="hero-tags">
+      <span class="tag">BIM / MEP</span><span class="tag">Сети отопления</span><span class="tag">Гидравлический анализ</span><span class="tag">Диагностика модели</span><span class="tag">Отчётность</span>
+    </div>
+  </div>
+  <div class="scroll-cue" aria-hidden="true">Скролл ↓</div>
+</section>
+
+<section class="band" aria-label="Ключевые возможности">
+  <div class="wrap">
+    <div class="stat-grid">
+      <div class="stat reveal"><div class="num">01</div><div class="lbl">Собрать сеть — трубопроводы, фитинги, арматура и приборы из модели</div></div>
+      <div class="stat reveal" data-delay="1"><div class="num">02</div><div class="lbl">Оценить гидравлику — расход, скорость, потери давления и диаметры</div></div>
+      <div class="stat reveal" data-delay="2"><div class="num">03</div><div class="lbl">Вернуть результат в BIM — параметры, визуализация и отчёты</div></div>
+      <div class="stat reveal" data-delay="3"><div class="num">BIM</div><div class="lbl">Расчёт остаётся связан с исходной моделью без потери контекста</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="problem">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="kicker">Задачи и решение</div>
+      <h2>Что HydroCalc помогает решать</h2>
+      <p>Геометрическая модель даёт форму, но не инженерную проверку сети. HydroCalc устраняет разрыв между моделью, ручными таблицами и списками замечаний.</p>
+    </div>
+    <div class="prob-grid">
+      <article class="prob-card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg></div><div><h3>Данные разбросаны по модели</h3><p>Сведения о трубах и приборах распределены по элементам BIM и их параметрам.</p><div class="result"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5 1.4-1.4L9 14.2 18.6 4.6z"/></svg><b>Единая расчётная структура</b> — граф сети с узлами, участками и связями.</div></div></article>
+      <article class="prob-card reveal" data-delay="1"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.5a2 2 0 0 1 3.4 0l7 12a2 2 0 0 1-1.7 3H5a2 2 0 0 1-1.7-3z"/><path d="M12 9v4M12 17h.01"/></svg></div><div><h3>Разрывы и неполные соединения</h3><p>Сложно понять, где заканчивается контур и какие приборы недостижимы.</p><div class="result"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5 1.4-1.4L9 14.2 18.6 4.6z"/></svg><b>Адресная проверка проблем</b> до выпуска документации.</div></div></article>
+      <article class="prob-card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 3 10 2-5h7"/></svg></div><div><h3>Трудно оценить параметры по участкам</h3><p>Расходы, скорости, потери давления и диаметры требуют отдельных расчётов.</p><div class="result"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5 1.4-1.4L9 14.2 18.6 4.6z"/></svg><b>Таблица результатов</b> с рекомендациями и допустимыми диапазонами.</div></div></article>
+      <article class="prob-card reveal" data-delay="1"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5l-7 14-4-8-4 3h9"/></svg></div><div><h3>Наследие требуется перенести в модель</h3><p>Изменения расчётной модели нужно согласованно вернуть в Revit.</p><div class="result"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5 1.4-1.4L9 14.2 18.6 4.6z"/></svg><b>Применение диаметров</b> и запись результатов внутри транзакций.</div></div></article>
+      <article class="prob-card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div><div><h3>Результат сложно передать коллегам</h3><p>Нужно сохранить аудит расчёта для контроля и согласования.</p><div class="result"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5 1.4-1.4L9 14.2 18.6 4.6z"/></svg><b>CSV, HTML-отчёт, печать/PDF</b> и экспорт диагностики.</div></div></article>
+      <article class="prob-card reveal" data-delay="1"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2-1 3.5-2 5H7c-1-1.5-2-3-2-5a7 7 0 0 1 7-7z"/><path d="M5 21h14"/></svg></div><div><h3>Неоднородные семейства и подключения</h3><p>Подключение приборов и коннекторов в моделях бывает непоследовательным.</p><div class="result"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5 1.4-1.4L9 14.2 18.6 4.6z"/></svg><b>Инструменты подключения</b> приборов и интерактивного соединения.</div></div></article>
+    </div>
+  </div>
+</section>
+
+<section class="wf" id="workflow">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="kicker">Пользовательский сценарий</div>
+      <h2>Как выглядит основной процесс</h2>
+      <p>Шесть шагов от выбора контуров до применения отчёта — всё в рамках интерфейса Revit.</p>
+    </div>
+    <div class="wf-track">
+      <div class="wf-step reveal"><div class="wf-num">01</div><div class="wf-body"><h3>Выбрать расчётные контуры</h3><p>При запуске пользователь выбирает балансировочные клапаны рассчитываемых контуров — они задают границы анализа.</p></div></div>
+      <div class="wf-step reveal"><div class="wf-num">02</div><div class="wf-body"><h3>Собрать данные из модели</h3><p>Команда проходит по элементам сети, строит топологический граф и формирует предупреждения о разрывах, недоступных узлах и нехватке данных.</p></div></div>
+      <div class="wf-step reveal"><div class="wf-num">03</div><div class="wf-body"><h3>Задать исходные параметры</h3><p>Температуры подачи и обратки, тип системы (двухтрубная / однотрубная), серия труб и целевая скорость теплоносителя.</p></div></div>
+      <div class="wf-step reveal"><div class="wf-num">04</div><div class="wf-body"><h3>Выполнить расчёт</h3><p>Нагрузки приборов распределяются по выбранным путям: расход, скорость, потери давления и рекомендуемые диаметры на участках.</p></div></div>
+      <div class="wf-step reveal"><div class="wf-num">05</div><div class="wf-body"><h3>Проверить результаты и диагностику</h3><p>Участки и ветви, диагностические сообщения, визуальная индикация и принадлежность к главному расчётному пути.</p></div></div>
+      <div class="wf-step reveal"><div class="wf-num">06</div><div class="wf-body"><h3>Сохранить или применить результат</h3><p>Экспорт, печать и, после проверки, применение рекомендуемых диаметров к модели Revit.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="kicker">Функциональность</div>
+      <h2>Возможности основного сценария</h2>
+      <p>Команды подтверждаются связанным интерфейсом главного расчётного окна и кнопками на ленте Revit.</p>
+    </div>
+    <div class="feat-grid">
+      <article class="feat reveal"><span class="chip core">Основной UI</span><h3>Сбор топологии сети</h3><p>Трубы, фитинги, арматура и оборудование соединяются через коннекторы в направленный граф; сеть ориентируется от источника или технического корня.</p></article>
+      <article class="feat reveal" data-delay="1"><span class="chip core">Основной UI</span><h3>Расчёт выбранных контуров</h3><p>По балансировочным клапанам и найденным путям к приборам с учётом нагрузок, температурного перепада и свойств воды.</p></article>
+      <article class="feat reveal" data-delay="2"><span class="chip core">Основной UI</span><h3>Диагностика модели</h3><p>Предупреждения о разрывах, недостающей тепловой нагрузке, отсутствующем диаметре и недостижимых элементах с кодами на базе HC.</p></article>
+      <article class="feat reveal"><span class="chip core">Основной UI</span><h3>Рекомендуемые диаметры</h3><p>Подбор по расходу, целевой скорости и серии труб; таблица сопоставляет текущий и рекомендованный диаметры.</p></article>
+      <article class="feat reveal" data-delay="1"><span class="chip core">Основной UI</span><h3>Визуальная индикация скоростей</h3><p>Трубы окрашиваются по категориям скорости, создаётся фильтр скорости на активном виде.</p></article>
+      <article class="feat reveal" data-delay="2"><span class="chip core">Основной UI</span><h3>Запись результатов в модель</h3><p>Расчётные параметры пишутся в Revit; применение диаметров происходит в транзакциях.</p></article>
+      <article class="feat reveal"><span class="chip core">Основной UI</span><h3>Оценка балансировки ветвей</h3><p>Расход, потери, отклонение от опорного пути и расчётная корректировка — как оценочные значения.</p></article>
+      <article class="feat reveal" data-delay="1"><span class="chip core">Основной UI</span><h3>Поэтажная балансировка</h3><p>После расчёта можно выбрать пару клапанов одного этажного ввода и рассчитать ветви и стояки.</p></article>
+      <article class="feat reveal" data-delay="2"><span class="chip core">Основной UI</span><h3>Таблицы и экспорт отчётов</h3><p>Номер, диаметры, длина, расход, скорость, потери и принадлежность главному пути; выгрузка в CSV, HTML и печать/PDF.</p></article>
+      <article class="feat reveal"><span class="chip core">Основной UI</span><h3>Навигация к элементу</h3><p>Выбор строки участка выделяет соответствующий элемент Revit и показывает его в модели.</p></article>
+      <article class="feat reveal" data-delay="1"><span class="chip ribbon">Кнопка на ленте</span><h3>Подключение приборов</h3><p>Строит трубные подводки к выбранным приборам и арматуре на основе выбранных труб и коннекторов.</p></article>
+      <article class="feat reveal" data-delay="2"><span class="chip ribbon">Кнопка на ленте</span><h3>Интерактивное соединение</h3><p>Последовательный выбор пар MEP-элементов с попыткой соединения, откатом неудачной пары и выходом по Esc.</p></article>
+      <article class="feat reveal"><span class="chip extra">Модуль</span><h3>Экспорт топологии</h3><p>CSV с трубами, системами, приборами, клапанами, соединениями и параметрами.</p><div class="tox"><b>Требует проверки UI:</b> присутствует в исходниках, не на основной ленте.</div></article>
+      <article class="feat reveal" data-delay="1"><span class="chip extra">Модуль</span><h3>Архив контуров</h3><p>Снимки контуров по UniqueId, хранение в Extensible Storage и цветовая подсветка элементов с восстановлением overrides.</p><div class="tox"><b>Требует проверки UI:</b> сценарий в основном окне не обнаружен.</div></article>
+      <article class="feat reveal" data-delay="2"><span class="chip extra">Модуль</span><h3>Аудит типов труб</h3><p>Dry-run-анализ неиспользуемых типов и безопасное удаление при транзакции и подтверждённой резервной копии.</p><div class="tox"><b>Требует проверки UI:</b> отдельная команда не обнаружена.</div></article>
+    </div>
+  </div>
+</section>
+
+<section class="diag" id="diag">
+  <div class="wrap diag-inner">
+    <div class="diag-text reveal">
+      <div class="sec-head">
+        <div class="kicker">Диагностика модели</div>
+        <h2>Плагин не просто считает — он подсказывает, где искать</h2>
+      </div>
+      <p>Диагностика фиксирует признаки разрыва, недостижимых приборов и отсутствующих параметров. Каждое предупреждение адресное: инженер видит проблему и её место в модели.</p>
+      <a href="#pitch" class="btn btn-primary">Узнать о ценности продукта</a>
+    </div>
+    <div class="diag-strip reveal" data-delay="1">
+      <div class="drow"><span class="code ok">HC-01</span><span class="msg">Сеть корректно собрана, пути к приборам найдены</span><span class="badge ok">OK</span></div>
+      <div class="drow"><span class="code warn">HC-14</span><span class="msg">Разрыв связности: участок не достигает прибора</span><span class="badge warn">Проверить</span></div>
+      <div class="drow"><span class="code warn">HC-21</span><span class="msg">Недостающая тепловая нагрузка на приборе</span><span class="badge warn">Проверить</span></div>
+      <div class="drow"><span class="code crit">HC-30</span><span class="msg">Скорость выше критического порога на ветви</span><span class="badge crit">Внимание</span></div>
+      <div class="drow"><span class="code warn">HC-05</span><span class="msg">Отсутствует диаметр на участке</span><span class="badge warn">Проверить</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="profile">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="kicker">Технологический профиль</div>
+      <h2>Технологическая основа</h2>
+      <p>Плагин построен вокруг Autodesk Revit API с безопасными транзакциями и координацией через внешние события.</p>
+    </div>
+    <div class="prof-table reveal">
+      <table>
+        <tbody>
+          <tr><td class="k">Тип продукта</td><td class="v">Плагин Autodesk Revit с WPF-интерфейсом и архитектурой ViewModel / команд.</td></tr>
+          <tr><td class="k">Среда разработки</td><td class="v">C# / .NET 8 для Windows, Autodesk Revit API, версия Revit 2025 в основном окне.</td></tr>
+          <tr><td class="k">Область</td><td class="v">MEP, отопительные трубопроводные сети, гидравлический анализ, работа с данными BIM-модели.</td></tr>
+          <tr><td class="k">Входные данные</td><td class="v">Элементы сети и коннекторы, тепловые нагрузки приборов, размеры и параметры труб, выбранные контуры, температурный график, тип системы и серия труб.</td></tr>
+          <tr><td class="k">Выходные данные</td><td class="v">Расчётные значения по участкам и ветвям, предупреждения, параметры элементов, визуальные overrides, CSV/HTML-отчёты и печатная версия.</td></tr>
+          <tr><td class="k">Безопасность изменений</td><td class="v">Изменения параметров и графики — через транзакции Revit; запросы из окна — через механизм внешних событий.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="pitch" id="pitch">
+  <div class="wrap">
+    <div class="reveal">
+      <div class="sec-head">
+        <div class="kicker">Позиционирование</div>
+        <h2 style="margin:0 0 18px">Короткий питч HydroCalc</h2>
+      </div>
+      <p class="quote">HydroCalc — инструмент инженерного анализа отопительных сетей в Autodesk Revit. Он связывает BIM-модель с расчётом выбранных контуров, диагностикой топологии, визуальной проверкой и экспортом результатов, помогая проектировщикам быстрее находить вопросы, требующие внимания, и работать с ними <b>в контексте модели</b>.</p>
+      <a href="#features" class="btn btn-primary">Посмотреть возможности</a>
+      <p class="note">Оценки ценности и готовность к внедрению намеренно не заявлены как доказанные: их нужно подтвердить пилотами на реальных проектах, валидацией расчётных методик и отзывами пользователей.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div><strong>HydroCalc</strong><p>Плагин Autodesk Revit для анализа сетей отопления</p></div>
+    <p>Материал для презентации продукта, пилота и проектного предложения.</p>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var reveals = document.querySelectorAll('.reveal');
+    if(reduce || !('IntersectionObserver' in window)){
+      reveals.forEach(function(el){el.classList.add('visible')});
+    } else {
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); }
+        });
+      }, {threshold:0.12, rootMargin:'0px 0px -40px 0px'});
+      reveals.forEach(function(el){io.observe(el)});
+    }
+    var burger = document.querySelector('.burger');
+    var mn = document.getElementById('mobileNav');
+    if(burger && mn){
+      burger.addEventListener('click', function(){
+        var open = mn.classList.toggle('open');
+        burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        burger.textContent = open ? '✕' : '☰';
+        burger.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+      });
+      mn.querySelectorAll('a').forEach(function(a){
+        a.addEventListener('click', function(){
+          mn.classList.remove('open');
+          burger.setAttribute('aria-expanded','false');
+          burger.textContent = '☰';
+        });
+      });
+    }
+  })();
+</script>
+</body>
+</html>
